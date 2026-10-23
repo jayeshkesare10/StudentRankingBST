@@ -149,7 +149,17 @@ export default function BSTTheoryModal({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="modal-footer">
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          <a
+            href="/Student_Ranking_System_BST_Backend_Code.pdf"
+            download="Student_Ranking_System_BST_Backend_Code.pdf"
+            className="btn-secondary btn-sm"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            Download C++ Backend Code (PDF)
+          </a>
           <button type="button" className="btn-primary" onClick={onClose}>
             Got it, Close Guide
           </button>

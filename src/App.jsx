@@ -378,6 +378,16 @@ export default function App() {
             >
               Backend API Endpoints
             </button>
+            <span className="footer-divider">&bull;</span>
+            <a 
+              href="/Student_Ranking_System_BST_Backend_Code.pdf"
+              download="Student_Ranking_System_BST_Backend_Code.pdf"
+              className="btn-link text-xs"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              C++ Backend Code (PDF)
+            </a>
           </div>
         </div>
       </footer>
