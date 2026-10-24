@@ -15,9 +15,23 @@
  * ============================================================================
  */
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <cerrno>
+typedef int SOCKET;
+#define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
+#define closesocket(s) close(s)
+#endif
 #include <iostream>
 #include <string>
 #include <vector>
@@ -26,8 +40,15 @@
 #include <cmath>
 #include <cstring>
 #include <cctype>
+#include <cstdlib>
 
-#pragma comment(lib, "ws2_32.lib")
+inline std::string getSocketError() {
+#ifdef _WIN32
+    return std::to_string(WSAGetLastError());
+#else
+    return std::string(strerror(errno));
+#endif
+}
 
 // Student Entity
 struct Student {
@@ -609,6 +630,18 @@ int main() {
     std::cout << "[BST Initialized] 7 initial students seeded into Binary Search Tree.\n";
     std::cout << "[BST Height] " << g_tree.getHeight() << " levels. Initial Root: Roll #101\n";
 
+    // Resolve port from environment (Render / Cloud uses $PORT, defaults to 8080)
+    int port = 8080;
+    const char* envPort = std::getenv("PORT");
+    if (envPort && std::strlen(envPort) > 0) {
+        try {
+            port = std::stoi(envPort);
+        } catch (...) {
+            port = 8080;
+        }
+    }
+
+#ifdef _WIN32
     // Initialize Winsock
     WSADATA wsaData;
     int wsaRes = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -616,11 +649,14 @@ int main() {
         std::cerr << "WSAStartup failed with error: " << wsaRes << std::endl;
         return 1;
     }
+#endif
 
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSocket == INVALID_SOCKET) {
-        std::cerr << "socket creation failed: " << WSAGetLastError() << std::endl;
+        std::cerr << "socket creation failed: " << getSocketError() << std::endl;
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
@@ -630,24 +666,28 @@ int main() {
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(8080);
+    serverAddr.sin_port = htons(static_cast<uint16_t>(port));
 
     if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
+        std::cerr << "Bind failed on port " << port << " with error: " << getSocketError() << std::endl;
         closesocket(listenSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
     if (listen(listenSocket, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
+        std::cerr << "Listen failed with error: " << getSocketError() << std::endl;
         closesocket(listenSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
-    std::cout << "\n>>> C++ BST Backend Server is LIVE and listening at http://localhost:8080 <<<\n";
-    std::cout << "Ready to accept HTTP requests from React frontend at http://localhost:5173\n";
+    std::cout << "\n>>> C++ BST Backend Server is LIVE and listening at http://0.0.0.0:" << port << " <<<\n";
+    std::cout << "Ready to accept HTTP requests from frontend\n";
     std::cout << "Endpoints active:\n";
     std::cout << "  - GET    /api/health\n";
     std::cout << "  - GET    /api/students\n";
@@ -662,13 +702,15 @@ int main() {
     while (true) {
         SOCKET clientSocket = accept(listenSocket, nullptr, nullptr);
         if (clientSocket == INVALID_SOCKET) {
-            std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
+            std::cerr << "Accept failed with error: " << getSocketError() << std::endl;
             continue;
         }
         handleClient(clientSocket);
     }
 
     closesocket(listenSocket);
+#ifdef _WIN32
     WSACleanup();
+#endif
     return 0;
 }
